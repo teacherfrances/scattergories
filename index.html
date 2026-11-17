@@ -309,6 +309,8 @@ a.homebtn:focus-visible{outline:5px solid #FFD500;outline-offset:3px}
     teams: [{name: "Team 1", score: 0}, {name: "Team 2", score: 0}],
     used: {}, recent: [], round: null, roundNo: 0, last: null
   };
+  var MINCATS = 1, MAXCATS = 20;
+  function clampCount(n){ n = Math.round(+n); if(!isFinite(n)) n = 10; return Math.max(MINCATS, Math.min(MAXCATS, n)); }
   var screen = "home", ci = 0, rolling = false, confirmNew = false;
   var timer = {left: 0, end: 0, running: false, id: null, lastBeep: null};
 
@@ -317,6 +319,7 @@ a.homebtn:focus-visible{outline:5px solid #FFD500;outline-offset:3px}
       var s = JSON.parse(localStorage.getItem(KEY) || "null");
       if(s && s.teams){ for(var k in s) if(k in S) S[k] = s[k]; }
     }catch(e){}
+    S.count = clampCount(S.count);
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
@@ -528,7 +531,9 @@ a.homebtn:focus-visible{outline:5px solid #FFD500;outline-offset:3px}
         "Australian categories are mixed in. They have a 🇦🇺 flag.") + "</p></div>";
     h += '<div class="card"><h2 class="ct"><span class="n">2</span>How many categories?</h2><div class="opts">' +
       [5, 8, 10, 12].map(function(n){ return opt("count", n, n, S.count === n); }).join("") +
-      '</div><p class="sub">Students write one word for each category.</p></div>';
+      '</div><div style="margin-top:.6em"><div class="stepper"><button data-act="countStep" data-d="-1"' + (S.count <= MINCATS ? " disabled" : "") + ' aria-label="One less category">−</button>' +
+      '<span class="v" id="countVal" aria-live="polite">' + S.count + '</span><button data-act="countStep" data-d="1"' + (S.count >= MAXCATS ? " disabled" : "") + ' aria-label="One more category">+</button></div></div>' +
+      '<p class="sub">Tap − or + to choose any number from ' + MINCATS + " to " + MAXCATS + ". Students write one word for each category.</p></div>";
     h += '<div class="card"><h2 class="ct"><span class="n">3</span>How much time?</h2><div class="opts">' +
       [[60,"1 min"],[120,"2 min"],[180,"3 min"],[300,"5 min"],[0,"No timer"]].map(function(x){ return opt("time", x[0], x[1], S.time === x[0]); }).join("") +
       '</div><p class="sub">A sound plays at the end. The last 10 seconds beep.</p></div>';
@@ -581,7 +586,7 @@ a.homebtn:focus-visible{outline:5px solid #FFD500;outline-offset:3px}
     var h = '<div class="card roundtop">' +
       '<div class="letter" id="letter">' + r.letter + "</div>" +
       '<div class="roundinfo"><h2>Round ' + r.no + ' <span class="leftpill" id="leftNow">' + catWord(leftNow()) + " left</span></h2>" +
-      "<p>Write one word for each category. Every word starts with <b id=\"letterWord\">" + r.letter + "</b>.</p>" +
+      "<p>" + (r.cats.length === 1 ? "Write one word for the category. The word starts with " : "Write one word for each category. Every word starts with ") + "<b id=\"letterWord\">" + r.letter + "</b>.</p>" +
       '<div class="btnrow" id="roundBtns"></div></div>';
     if(S.time){
       h += '<div class="timerbox" id="timerbox"><svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="tg" x1="0" x2="1">' +
@@ -687,7 +692,13 @@ a.homebtn:focus-visible{outline:5px solid #FFD500;outline-offset:3px}
     if(a === "fs"){ window.__toggleFS(); return; }
     if(a === "level"){ S.level = d.v; save(); render(); return; }
     if(a === "topic"){ S.topic = d.v; save(); render(); return; }
-    if(a === "count"){ S.count = +d.v; save(); render(); return; }
+    if(a === "count"){ S.count = clampCount(+d.v); save(); render(); return; }
+    if(a === "countStep"){
+      S.count = clampCount(S.count + (+d.d)); save(); render();
+      var again = document.querySelector('[data-act="countStep"][data-d="' + d.d + '"]');
+      if(again && !again.disabled) again.focus(); else { var other = document.querySelector('[data-act="countStep"]:not([disabled])'); if(other) other.focus(); }
+      return;
+    }
     if(a === "time"){ S.time = +d.v; save(); render(); return; }
     if(a === "letters"){ S.letters = d.v; save(); render(); return; }
     if(a === "mode"){
